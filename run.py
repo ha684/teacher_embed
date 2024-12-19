@@ -189,7 +189,7 @@ def process_directory(input_dir, output_dir, queries_list, model_name="bkai-foun
 
 if __name__ == "__main__":
     input_directory = "vietnamese_dataset"
-    download_parquet_files(input_directory, num_files=1)
+    download_parquet_files(input_directory, num_files=20)
     output_directory = "processed_dataset"
-    model_name = "bkai-foundation-models/vietnamese-bi-encoder"
+    model_name = "BAAI/bge-multilingual-gemma2"
     process_directory(input_directory, output_directory, queries, model_name)
