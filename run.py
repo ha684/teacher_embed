@@ -97,18 +97,14 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
     processed_count = load_checkpoint(checkpoint_path)
     
     import torch
-    model = SentenceTransformer(model_name, trust_remote_code=True,model_kwargs={"torch_dtype":torch.float16})
-    model.max_seq_length = 32768
-    model.tokenizer.padding_side="right"
+    from FlagEmbedding import FlagLLMModel
+
+    model = FlagLLMModel('BAAI/bge-multilingual-gemma2', 
+                     query_instruction_for_retrieval="Given a web search query, retrieve relevant passages that answer the query.",
+                     use_fp16=True)
     instruction = 'Given a web search query, retrieve relevant passages that answer the query.'
     prompt = f'<instruct>{instruction}\n<query>'
-    task_name_to_instruct = {"example": "Given a question, retrieve passages that answer the question",}
     
-    def add_eos(input_examples):
-        input_examples = [input_example + model.tokenizer.eos_token for input_example in input_examples]
-        return input_examples
-    
-    query_prefix = "Instruct: "+task_name_to_instruct["example"]+"\nQuery: "
     df = pd.read_parquet(input_file)
     texts = df['text'].tolist()
     
@@ -118,21 +114,20 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
             passages.append((texts[i], texts[i+1]))
     
     passages = passages[processed_count:]
-    batch_size = 1
-
+    
     for i in tqdm(range(0, len(passages), batch_size), desc="Processing batches"):
         batch_passages = passages[i:i+batch_size]
         batch_queries = random.choices(queries_list, k=len(batch_passages))
         
-        query_embeddings = model.encode(add_eos(batch_queries), batch_size=batch_size, prompt=query_prefix, normalize_embeddings=True)
+        query_embeddings = model.encode_queries(batch_queries)
         passages2 = [pair[0] for pair in batch_passages]
         passages3 = [pair[1] for pair in batch_passages]
         
-        emb2 = model.encode(add_eos(passages2), batch_size=batch_size,normalize_embeddings=True)
-        emb3 = model.encode(add_eos(passages3), batch_size=batch_size,normalize_embeddings=True)
+        emb2 = model.encode_corpus(passages2)
+        emb3 = model.encode_corpus(passages3)
         
-        sim_q2 = model.similarity_pairwise(query_embeddings, emb2)
-        sim_q3 = model.similarity_pairwise(query_embeddings, emb3)
+        sim_q2 = query_embeddings @ emb2.T
+        sim_q3 = query_embeddings @ emb3.T
         
         batch_results_q2 = []
         batch_results_q3 = []
@@ -182,7 +177,7 @@ if __name__ == "__main__":
     input_directory = "vietnamese_dataset"
     output_directory = "processed_dataset"
     start_file_index = 0 
-    end_file_index = 0
+    end_file_index = 10
     
     download_parquet_files(input_directory, start_file_index, end_file_index)
     
