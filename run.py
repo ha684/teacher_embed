@@ -97,7 +97,7 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
     processed_count = load_checkpoint(checkpoint_path)
     
     import torch
-    model = SentenceTransformer(model_name, trust_remote_code=True)
+    model = SentenceTransformer(model_name, trust_remote_code=True,model_kwargs={"torch_dtype":torch.float16})
     model.max_seq_length = 32768
     model.tokenizer.padding_side="right"
     instruction = 'Given a web search query, retrieve relevant passages that answer the query.'
