@@ -178,7 +178,7 @@ if __name__ == "__main__":
     download_parquet_files(input_directory, start_file_index, end_file_index)
     
     queries = read_queries_from_file("query.txt")
-    model_name = "bkai-foundation-models/vietnamese-bi-encoder"
+    model_name = "BAAI/bge-multilingual-gemma2"
     
     for i in range(start_file_index, end_file_index + 1):
         file_name = f"train-{i:05d}-of-00132.parquet"
