@@ -97,12 +97,18 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
     processed_count = load_checkpoint(checkpoint_path)
     
     import torch
-    model = SentenceTransformer("Alibaba-NLP/gte-Qwen2-7B-instruct", trust_remote_code=True)
-    model.max_seq_length = 8192
-
+    model = SentenceTransformer(model_name, trust_remote_code=True)
+    model.max_seq_length = 32768
+    model.tokenizer.padding_side="right"
     instruction = 'Given a web search query, retrieve relevant passages that answer the query.'
     prompt = f'<instruct>{instruction}\n<query>'
+    task_name_to_instruct = {"example": "Given a question, retrieve passages that answer the question",}
     
+    def add_eos(input_examples):
+        input_examples = [input_example + model.tokenizer.eos_token for input_example in input_examples]
+        return input_examples
+    
+    query_prefix = "Instruct: "+task_name_to_instruct["example"]+"\nQuery: "
     df = pd.read_parquet(input_file)
     texts = df['text'].tolist()
     
@@ -112,17 +118,18 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
             passages.append((texts[i], texts[i+1]))
     
     passages = passages[processed_count:]
-    
+    batch_size = 1
+
     for i in tqdm(range(0, len(passages), batch_size), desc="Processing batches"):
         batch_passages = passages[i:i+batch_size]
         batch_queries = random.choices(queries_list, k=len(batch_passages))
         
-        query_embeddings = model.encode(batch_queries, prompt_name="query", normalize_embeddings=True)
+        query_embeddings = model.encode(add_eos(batch_queries), batch_size=batch_size, prompt=query_prefix, normalize_embeddings=True)
         passages2 = [pair[0] for pair in batch_passages]
         passages3 = [pair[1] for pair in batch_passages]
         
-        emb2 = model.encode(passages2, normalize_embeddings=True)
-        emb3 = model.encode(passages3, normalize_embeddings=True)
+        emb2 = model.encode(add_eos(passages2), batch_size=batch_size,normalize_embeddings=True)
+        emb3 = model.encode(add_eos(passages3), batch_size=batch_size,normalize_embeddings=True)
         
         sim_q2 = model.similarity_pairwise(query_embeddings, emb2)
         sim_q3 = model.similarity_pairwise(query_embeddings, emb3)
@@ -180,6 +187,7 @@ if __name__ == "__main__":
     download_parquet_files(input_directory, start_file_index, end_file_index)
     
     queries = read_queries_from_file("query.txt")
+    model_name = "nvidia/NV-Embed-v2"
     
     for i in range(start_file_index, end_file_index + 1):
         file_name = f"train-{i:05d}-of-00132.parquet"
@@ -197,6 +205,7 @@ if __name__ == "__main__":
                 output_file_q3,
                 output_file_current,
                 queries,
+                model_name
             )
         except Exception as e:
             logging.error(f"Error processing {file_name}: {str(e)}")
