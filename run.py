@@ -182,7 +182,7 @@ if __name__ == "__main__":
     input_directory = "vietnamese_dataset"
     output_directory = "processed_dataset"
     start_file_index = 0 
-    end_file_index = 10
+    end_file_index = 0
     
     download_parquet_files(input_directory, start_file_index, end_file_index)
     
