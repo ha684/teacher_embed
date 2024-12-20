@@ -197,7 +197,6 @@ if __name__ == "__main__":
                 output_file_q3,
                 output_file_current,
                 queries,
-                model_name
             )
         except Exception as e:
             logging.error(f"Error processing {file_name}: {str(e)}")
