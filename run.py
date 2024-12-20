@@ -97,7 +97,9 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
     processed_count = load_checkpoint(checkpoint_path)
     
     import torch
-    model = SentenceTransformer(model_name, model_kwargs={"torch_dtype": torch.float16})
+    model = SentenceTransformer("Alibaba-NLP/gte-Qwen2-7B-instruct", trust_remote_code=True)
+    model.max_seq_length = 8192
+
     instruction = 'Given a web search query, retrieve relevant passages that answer the query.'
     prompt = f'<instruct>{instruction}\n<query>'
     
@@ -115,7 +117,7 @@ def process_parquet_file(input_file, output_file_q2, output_file_q3,
         batch_passages = passages[i:i+batch_size]
         batch_queries = random.choices(queries_list, k=len(batch_passages))
         
-        query_embeddings = model.encode(batch_queries, prompt=prompt, normalize_embeddings=True)
+        query_embeddings = model.encode(batch_queries, prompt_name="query", normalize_embeddings=True)
         passages2 = [pair[0] for pair in batch_passages]
         passages3 = [pair[1] for pair in batch_passages]
         
@@ -178,7 +180,6 @@ if __name__ == "__main__":
     download_parquet_files(input_directory, start_file_index, end_file_index)
     
     queries = read_queries_from_file("query.txt")
-    model_name = "BAAI/bge-multilingual-gemma2"
     
     for i in range(start_file_index, end_file_index + 1):
         file_name = f"train-{i:05d}-of-00132.parquet"
